@@ -1,0 +1,56 @@
+{
+  "canvas": {
+    "width": 1920,
+    "height": 1080
+  },
+  "grid": {
+    "columns": 12,
+    "gap": 16,
+    "margin": 32,
+    "row_height": 160
+  },
+  "placements": [
+    {
+      "id": "kpi_1",
+      "x": 32.0,
+      "y": 96,
+      "width": 452.0,
+      "height": 160
+    },
+    {
+      "id": "kpi_2",
+      "x": 500.0,
+      "y": 96,
+      "width": 452.0,
+      "height": 160
+    },
+    {
+      "id": "kpi_3",
+      "x": 968.0,
+      "y": 96,
+      "width": 452.0,
+      "height": 160
+    },
+    {
+      "id": "kpi_4",
+      "x": 1436.0,
+      "y": 96,
+      "width": 452.0,
+      "height": 160
+    },
+    {
+      "id": "primary_visual",
+      "x": 32.0,
+      "y": 272,
+      "width": 1232.0,
+      "height": 336
+    },
+    {
+      "id": "secondary_visual",
+      "x": 1280.0,
+      "y": 272,
+      "width": 608.0,
+      "height": 336
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+# Python: virtual environments, bytecode and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Packaging and builds
+build/
+dist/
+*.egg-info/
+
+# Secrets and machine-local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDE and OS temporary files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+
+# Local and potentially sensitive datasets
+# Keep synthetic examples/ and tests/fixtures/ versioned.
+data/raw/
+data/clean/
+data/processed/
+data/analytical/
+data/private/
+
+# Generated outputs (not source code / not checked-in fixtures)
+outputs/
+output/
+reports/generated/
+tmp/
+temp/
+
+# Power BI Desktop local settings and caches
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+**/.pbi/unappliedChanges.json
+
+# Binary Power BI reports; keep .pbip/.pbir/.tmdl/.json/.pbit source files tracked.
+*.pbix

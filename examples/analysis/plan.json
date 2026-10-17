@@ -1,0 +1,50 @@
+{
+  "version": "0.1.0",
+  "selected_domain": "projects",
+  "domain_candidates": [
+    {
+      "domain": "projects",
+      "score": 0.875,
+      "signals": [
+        "projeto",
+        "atividade",
+        "inicio",
+        "fim",
+        "status",
+        "progresso",
+        "responsavel"
+      ]
+    }
+  ],
+  "proposed_visuals": [
+    {
+      "visual": "table",
+      "reason": "Reconhecer granularidade e verificar resultados",
+      "status": "proposed"
+    },
+    {
+      "visual": "gantt",
+      "status": "dates_valid_pending_semantic_review",
+      "fields": {
+        "task": "Atividade",
+        "start": "Data Início",
+        "end": "Data Fim"
+      },
+      "reason": "Atividades com intervalo temporal detectado; validar cronologia e disponibilidade do visual Gantt",
+      "data_validation": {
+        "total_rows": 5,
+        "ready_rows": 5,
+        "missing_or_unparseable_rows": 0,
+        "end_before_start_rows": 0,
+        "ready": true
+      }
+    },
+    {
+      "visual": "status_distribution",
+      "status": "proposed",
+      "reason": "Distribuição de atividades por estado, caso exista status"
+    }
+  ],
+  "cautions": [],
+  "status": "draft_requires_review"
+}

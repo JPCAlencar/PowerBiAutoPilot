@@ -1,0 +1,61 @@
+{
+  "rows": 5,
+  "columns": [
+    {
+      "name": "Projeto",
+      "type": "text",
+      "missing_count": 0,
+      "missing_percent": 0.0,
+      "distinct_count": 2
+    },
+    {
+      "name": "Atividade",
+      "type": "text",
+      "missing_count": 0,
+      "missing_percent": 0.0,
+      "distinct_count": 5
+    },
+    {
+      "name": "Data Início",
+      "type": "date",
+      "missing_count": 0,
+      "missing_percent": 0.0,
+      "distinct_count": 5,
+      "min_date": "2026-09-01",
+      "max_date": "2026-10-21",
+      "invalid_date_count": 0
+    },
+    {
+      "name": "Data Fim",
+      "type": "date",
+      "missing_count": 0,
+      "missing_percent": 0.0,
+      "distinct_count": 5,
+      "min_date": "2026-09-12",
+      "max_date": "2026-11-10",
+      "invalid_date_count": 0
+    },
+    {
+      "name": "Status",
+      "type": "text",
+      "missing_count": 0,
+      "missing_percent": 0.0,
+      "distinct_count": 3
+    },
+    {
+      "name": "Responsável",
+      "type": "text",
+      "missing_count": 0,
+      "missing_percent": 0.0,
+      "distinct_count": 3
+    },
+    {
+      "name": "Progresso",
+      "type": "number",
+      "missing_count": 0,
+      "missing_percent": 0.0,
+      "distinct_count": 4
+    }
+  ],
+  "warnings": []
+}

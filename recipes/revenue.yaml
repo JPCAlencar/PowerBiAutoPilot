@@ -1,0 +1,8 @@
+domain: revenue
+purpose: Faturamento, atingimento e crescimento
+signals: [faturamento, invoice, receita, cliente, meta, venda, contrato]
+insights:
+  - faturamento por período (validar moeda e cancelamentos)
+  - realizado versus meta (somente quando meta existir)
+  - concentração por cliente (verificar duplicidade)
+never: somar valores repetidos em linhas de detalhe sem checar granularidade

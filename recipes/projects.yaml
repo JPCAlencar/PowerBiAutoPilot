@@ -1,0 +1,13 @@
+domain: projects
+purpose: Acompanhamento de entregas, atividades, prazos e riscos
+signals: [projeto, atividade, tarefa, inicio, fim, status, progresso, responsavel]
+insights:
+  - tarefa por status (somente se campo de status existente)
+  - cronograma de atividades (somente com datas de início/fim/duração validada)
+  - atraso (somente com prazo planejado e regra de atraso)
+  - conclusão por projeto (somente com status ou percentual confiável)
+gantt:
+  required: [task, start, end]
+  validation: [no_missing_dates, end_greater_or_equal_start, date_semantics]
+  chart: visual personalizado permitido e validado; alternativa com barras ou marcos quando compatível
+  never: inventar início a partir da data de conclusão

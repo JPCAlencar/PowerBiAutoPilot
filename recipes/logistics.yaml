@@ -1,0 +1,8 @@
+domain: logistics
+purpose: Acompanhamento de operações e transportes
+signals: [entrega, remessa, pedido, transporte, frete, origem, destino, sla]
+insights:
+  - volume por período
+  - lead time de transporte (exigir carimbos temporais adequados)
+  - aderência ao SLA (somente com compromisso e status)
+never: assumir prazo contratual inexistente

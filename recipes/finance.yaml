@@ -1,0 +1,9 @@
+domain: finance
+purpose: Gestão financeira e evolução de lançamentos
+signals: [receita, despesa, valor, categoria, lancamento, pagamento, credito, debito]
+insights:
+  - entradas e saídas por período (se houver sinal e classificação definidos)
+  - saldo (avaliar se estoque de saldo ou soma de fluxos)
+  - composição de despesas (se houver classificação)
+  - inadimplência (somente se houver vencimento, status e política definidos)
+never: interpretar qualquer valor positivo como receita sem regra
