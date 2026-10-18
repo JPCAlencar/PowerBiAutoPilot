@@ -1,0 +1,9 @@
+ID;Tipo;Valor;Moeda;Pago;Data Lançamento;Competência;Data Vencimento;Data Pagamento;Categoria;Cliente_ID
+001;Receita;1200,50;BRL;Sim;2026-01-01;2026-01-01;2026-01-15;2026-01-14;Serviços;C01
+002;Despesa;-300,20;BRL;Sim;2026-01-02;2026-01-01;2026-01-10;2026-01-10;Infraestrutura;C02
+003;Receita;500,00;BRL;Não;2026-01-03;2026-01-01;2026-02-15;;Serviços;C03
+004;Despesa;-100,00;BRL;Não;2026-01-04;2026-01-01;2026-02-15;;Licenças;C02
+005;Receita;700,00;BRL;Sim;2026-02-01;2026-02-01;2026-02-10;2026-02-09;Serviços;C01
+006;Despesa;-250,30;BRL;Sim;2026-02-02;2026-02-01;2026-02-10;2026-02-10;Infraestrutura;C02
+007;Receita;900,00;BRL;Sim;2026-02-03;2026-02-01;2026-02-20;2026-02-20;Serviços;C03
+008;Despesa;-80,00;BRL;Sim;2026-02-04;2026-02-01;2026-02-20;2026-02-20;Licenças;C02

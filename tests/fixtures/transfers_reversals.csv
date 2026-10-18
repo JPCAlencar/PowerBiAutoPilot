@@ -1,0 +1,6 @@
+ID;Tipo;Valor;Moeda;Pago;Data Pagamento;Conta
+T1;Transferência;-500,00;BRL;Sim;2026-01-15;Banco A
+T2;Transferência;500,00;BRL;Sim;2026-01-15;Banco B
+T3;Estorno;-100,00;BRL;Sim;2026-01-16;Banco B
+T4;Reembolso;100,00;BRL;Sim;2026-01-17;Banco A
+T5;Receita;1000,00;BRL;Cancelado;;Banco A
