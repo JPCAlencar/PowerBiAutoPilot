@@ -80,7 +80,6 @@ class NumberParsingTests(unittest.TestCase):
         self.assertTrue(currency_marker('R$ 10,00'))
         self.assertFalse(currency_marker('R$'))
 
-    @unittest.expectedFailure
     def test_qa_f09_leading_zero_group_must_not_be_a_thousands_separator(self):
         """QA-F09 (LIKELY BUG, LOW-MEDIUM): silent x1000 magnitude error.
 

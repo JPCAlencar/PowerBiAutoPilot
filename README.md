@@ -1,4 +1,4 @@
-# PowerBI Autopilot — Data Intelligence Engine V0.2
+# PowerBI Autopilot — Data Intelligence Engine V0.2.1
 
 Motor local para compreender e diagnosticar dados antes de construir relatórios Power BI. Lê CSV/XLSX/XLSM, perfila todas as abas, sugere semântica com evidências, identifica riscos financeiros e de relacionamentos e planeja transformações sem executá-las. Não depende de IA, Desktop, Fabric ou serviços pagos.
 
@@ -30,7 +30,7 @@ Saídas existentes são recusadas. `--overwrite` permite substituir os quatro ar
 
 | Arquivo | Conteúdo |
 |---|---|
-| `analysis.json` | Resultado completo, versão 0.2.0, origem, perfis, hipóteses, financeiro, relações e ocorrências |
+| `analysis.json` | Resultado completo, engine/schema 0.2.1, origem, perfis, hipóteses, financeiro, relações e ocorrências |
 | `profile.json` | Perfis por tabela |
 | `plan.json` | Operações propostas, riscos, pré-condições e dependências dos indicadores |
 | `report.md` | Leitura humana com limites explícitos de tamanho |
@@ -56,6 +56,36 @@ O comando `analyze`, entrada posicional, `--output`, `--sheet` e `--sep` continu
 
 Esta versão não gera DAX, PBIP, Power Query, modelo dimensional, dashboard, interface gráfica ou screenshots. Não lê SQL, XLS, PDF nem PBIX. Não executa planos, avalia fórmulas, calcula inadimplência ou confirma relações/granularidade. O motor usa memória integral; não é indicado para fontes maiores que a memória disponível. Confiança semântica é força heurística conservadora, sem calibração probabilística empírica. Consulte [contratos e limites](docs/DATA_CONTRACTS.md).
 
+### Estabilização V0.2.1
+
+Corrige agrupamentos como `0,500` sob en-US (e o espelhado pt-BR), que agora são
+recusados sem reinterpretar escala; reconhece cabeçalhos compostos controlados;
+separa flags genéricas de pagamento e evita diagnósticos financeiros por nome em
+tabelas sem contexto financeiro. “Em aberto” é reconhecido como pendente; estados
+parciais/administrativos continuam exigindo contrato.
+
+CSV sem separador no cabeçalho lógico é tratado como hipótese de coluna única,
+com `single_column_csv` e `source.delimiter: null`. `--sep` continua autoritativo;
+cabeçalho com múltiplos campos e linhas irregulares continua sendo recusado. Abas
+de gráficos são ignoradas com INFO e não impedem leitura das abas tabulares.
+
+Possíveis totais/subtotais geram `footer_row_suspected` (WARNING, inferência),
+mantendo todas as linhas, identidades e estatísticas da fonte. Indicadores passam
+a exigir `detail_row_policy`; o plano propõe revisão, sem excluir linhas. A
+heurística é limitada e não comprova ausência de agregados não sinalizados.
+
+O esquema JSON passa a **0.2.1** para explicitar o delimitador anulável e as novas
+dependências/operações. Migração e vocabulário estão nos [contratos](docs/DATA_CONTRACTS.md);
+a investigação por achado e as evidências estão em
+[QA_RESOLUTION_V0.2.1.md](docs/QA_RESOLUTION_V0.2.1.md).
+
+Execute também a suíte externa, que não é descoberta pelo primeiro comando:
+
+```powershell
+python -m unittest discover -s tests -v
+python -m unittest discover -s tests/qa_external -v
+```
+
 ## Documentação
 
 - [Visão do produto](docs/PRODUCT_VISION.md)
@@ -63,6 +93,7 @@ Esta versão não gera DAX, PBIP, Power Query, modelo dimensional, dashboard, in
 - [Arquitetura](docs/ARCHITECTURE.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Contratos de dados](docs/DATA_CONTRACTS.md)
+- [Resolução do QA independente V0.2.1](docs/QA_RESOLUTION_V0.2.1.md)
 - [Instruções para agentes](AGENTS.md) e [skill portátil](SKILL.md)
 
 Integrações futuras deverão verificar a documentação vigente de [Microsoft Skills for Fabric](https://github.com/microsoft/skills-for-fabric), [Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) e [PBIR](https://learn.microsoft.com/en-us/power-bi/developer/embedded/projects-enhanced-report-format). Não há integração Microsoft implementada nesta versão.

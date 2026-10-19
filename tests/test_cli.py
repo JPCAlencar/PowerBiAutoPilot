@@ -27,7 +27,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(self.run_cli('--output', self.root/name), 0)
         out = self.root/'one'
         r = json.loads((out/'analysis.json').read_text(encoding='utf-8'))
-        self.assertEqual(r['schema_version'], '0.2.0')
+        self.assertEqual(r['schema_version'], '0.2.1')
         self.assertEqual(r['tables'][0]['profile']['rows'], 2)
         self.assertEqual(r['tables'][0]['profile']['source']['sha256'], hashlib.sha256(before).hexdigest())
         self.assertEqual(r['validation']['semantic_validation'], 'not_performed')

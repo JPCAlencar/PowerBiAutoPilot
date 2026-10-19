@@ -4,7 +4,9 @@ from collections import defaultdict
 from .contracts import issue
 from .parsing import date, number, missing, currency_hint, currency_marker
 from .profiling import number_hint
-from .semantics import PAID, PENDING, CANCELLED, MOVEMENTS, CURRENCIES, token
+from .semantics import (CANCELLED, MOVEMENTS, CURRENCIES, DEFAULT_RULES,
+                        PAID_FLAGS, PENDING_FLAGS,
+                        header_matches, payment_flag_header, payment_vocabulary, token)
 from .profiler import normalize
 
 
@@ -29,14 +31,27 @@ def diagnose(table, profile, mapping, locale=None):
     def one(role):
         return roles[role][0] if len(roles[role]) == 1 else None
 
-    def named(aliases):
-        cols = [c for c in df.columns if normalize(c) in aliases]
+    def audit_column(role):
+        # A rejected field can still be audited without promoting it to a role.
+        # Never resolve multiple semantic candidates by choosing a named column.
+        if roles[role]:
+            return one(role)
+        aliases = tuple(a for rule in DEFAULT_RULES if rule.role == role for a in rule.aliases)
+        cols = [c for c in df.columns if header_matches(c, aliases)]
         return cols[0] if len(cols) == 1 else None
 
-    movement = one('movement_type') or named({'tipo', 'natureza', 'movement_type'})
-    status = one('payment_status') or named({'pago', 'status', 'situacao', 'payment_status'})
-    currency = one('currency') or named({'moeda', 'currency'})
-    pay_date = one('payment_date') or named({'data_pagamento', 'payment_date', 'data_recebimento'})
+    financial_context = bool(amounts or roles['balance'] or
+                             any(currency_marker(v) for c in monetary for v in df[c]) or
+                             (monetary and roles['currency']))
+    movement = one('movement_type') or (audit_column('movement_type') if financial_context else None)
+    status = one('payment_status') or (audit_column('payment_status') if financial_context else None)
+    if status and not payment_flag_header(status):
+        tokens = [token(v) for v in df[status] if not missing(v)]
+        if tokens and all(v in PAID_FLAGS | PENDING_FLAGS for v in tokens):
+            status = None
+    currency = audit_column('currency')
+    pay_date = audit_column('payment_date')
+    paid, pending = payment_vocabulary(status) if status else (set(), set())
     types = [token(v) if not missing(v) else '' for v in df[movement]] if movement else ['']*len(df)
     states = [token(v) if not missing(v) else '' for v in df[status]] if status else ['']*len(df)
     special = [i for i, v in enumerate(types) if v in SPECIAL]
@@ -50,10 +65,10 @@ def diagnose(table, profile, mapping, locale=None):
     if cancelled:
         add('cancelled_records', 'WARNING', 'Cancelamentos exigem política explícita de exclusão ou reversão.', cancelled, status, 'classified_metrics')
     if status:
-        unknown = [i for i, v in enumerate(states) if v not in PAID | PENDING | CANCELLED]
+        unknown = [i for i, v in enumerate(states) if v not in paid | pending | CANCELLED]
         if unknown:
             add('unknown_payment_status', 'BLOCKER', 'Status ausente ou não reconhecido; não presumir pago/pendente.', unknown, status, 'cash_metrics')
-        no_payment = [i for i, v in enumerate(states) if v in PAID and (not pay_date or date(df[pay_date].iloc[i], locale).status != 'valid')]
+        no_payment = [i for i, v in enumerate(states) if v in paid and (not pay_date or date(df[pay_date].iloc[i], locale).status != 'valid')]
         if no_payment:
             add('paid_without_payment_date', 'BLOCKER', 'Pagamento declarado sem data de pagamento utilizável.', no_payment, pay_date, 'cash_metrics')
     known_currencies = set()
@@ -124,6 +139,8 @@ def diagnose(table, profile, mapping, locale=None):
     ]
     for key, meaning, needed in definitions:
         absent = [r for r in needed if not requirements[r]]
+        if any(i['code'] == 'footer_row_suspected' for i in profile['issues']):
+            absent.append('detail_row_policy')
         indicators.append({'id': key, 'meaning': meaning, 'status': 'insufficient_evidence' if absent else 'requires_contract',
                            'missing_requirements': absent, 'requires_contract': True,
                            'contract_fields': ['grain', 'nature_mapping', 'sign_convention', 'date_role', 'currency_policy', 'status_policy', 'special_movement_policy', 'aggregation'],

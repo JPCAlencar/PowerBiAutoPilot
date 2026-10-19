@@ -1,4 +1,4 @@
-# Arquitetura V0.2
+# Arquitetura V0.2.1
 
 O núcleo é uma biblioteca Python offline. A CLI é apenas uma porta de entrada. Nenhum módulo depende de Power BI Desktop, APIs de IA ou serviços Microsoft.
 
@@ -42,6 +42,23 @@ Indicadores financeiros são sugestões com requisitos, nunca valores calculados
 Reconciliação usa Decimal com precisão dimensionada aos operandos e soma separada por moeda explícita. Compara também identidade de linhas, esquema e células: alterações compensatórias não passam por terem total igual. A API atual é estrita: até conversões legítimas de representação requerem um executor e contrato de mudanças futuras. Não aceita deltas esperados nesta versão.
 
 Nenhum join é materializado. Candidatos são restritos a nomes de identificadores iguais normalizados; cardinalidade e cobertura não provam relação de negócio. Nulos são contados separadamente e sua política permanece indefinida. A busca detalha no máximo 100 candidatos e declara truncamento.
+
+V0.2.1 concentra correções nos módulos existentes. `parsing` usa a mesma gramática
+de agrupamento em todos os caminhos, recusando grupos iniciais com zero.
+`semantics` compartilha comparação controlada de aliases e vocabulário de
+pagamento contextual com `financial`; auditoria de campos inválidos não promove
+papéis semânticos. `intake` valida separadores contra o cabeçalho lógico e mantém
+hipótese explícita de coluna única. Um adaptador pequeno de `ExcelReader` ignora
+chartsheets antes do carregamento de desenhos (inclusive a falha de chartsheet
+vazia do openpyxl 3.1.5); não altera bytes nem aplica monkey patch global. Essa
+interface da dependência requer regressões ao atualizar openpyxl.
+
+`profiling` detecta possíveis linhas agregadas como inferência de layout sem
+filtrar o DataFrame. `financial` acrescenta requisito de política de grão e
+`planning` propõe revisão. `relationships` calcula multiplicação somente em
+correspondências não nulas, mantendo direcionalidade real e política de nulos
+indefinida. Engine e esquema JSON 0.2.1 distinguem o novo delimitador anulável;
+consulte a migração em DATA_CONTRACTS.md.
 
 JSON não inclui amostras de valores; Markdown escapa metadados e limita listagens. Dados agregados também podem ser sensíveis, portanto as saídas permanecem locais. Escrita faz preflight de todos os destinos e substituição atômica por arquivo; o conjunto não é uma transação e uma interrupção de disco pode produzir saída parcial. Sem `--overwrite`, destinos existentes são recusados.
 

@@ -87,7 +87,6 @@ class NullPolicyTests(unittest.TestCase):
         self.assertEqual(rel['null_source_rows'], 1)
         self.assertEqual(rel['null_target_rows'], 0)
 
-    @unittest.expectedFailure
     def test_qa_f04_null_multiplication_risk_is_symmetric(self):
         """QA-F04 (CONFIRMED BUG, MEDIUM): ``multiplication_risk`` adds
         ``left_nulls > 0 and right_nulls > 1``. The same key pair is flagged in one

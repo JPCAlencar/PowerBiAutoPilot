@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 
+SCHEMA_VERSION = '0.2.1'
+
+
 @dataclass
 class Table:
     id: str

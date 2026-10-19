@@ -24,6 +24,12 @@ def plan_transformations(table, profile, mapping):
     if profile['duplicate_rows']:
         add('review_duplicates', None, 'Transações iguais podem ser legítimas.',
             ['Remoção pode reduzir totais indevidamente.'], ['Definir granularidade e chave de negócio.', 'Nenhuma exclusão automática.'])
+    if any(i['code'] == 'footer_row_suspected' for i in profile['issues']):
+        add('review_aggregate_rows', None, 'Possíveis totais/subtotais misturados a registros detalhados.',
+            ['Dupla contagem; exclusão pode apagar registros legítimos.'],
+            ['Confirmar granularidade e política para linhas agregadas.',
+             'Preservar todas as linhas e identidades até revisão.',
+             'Reconciliar células e totais por moeda antes de qualquer transformação futura.'])
     for col in mapping:
         if col['suggestions']:
             add('confirm_semantics', col['column'], 'Hipótese semântica precisa de contrato.',

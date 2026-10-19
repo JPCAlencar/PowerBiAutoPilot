@@ -108,18 +108,16 @@ class CleanFinanceTests(unittest.TestCase):
 
 
 class StatusVocabularyTests(unittest.TestCase):
-    def test_unknown_status_blocks_cash_metrics_with_row_evidence(self):
-        # Vocabulary gap recorded as QA-F08: 'Em aberto' is a very common pt-BR
-        # status and is not in PENDING, so the row becomes a BLOCKER.
+    def test_em_aberto_is_pending_without_false_cash_blocker(self):
+        # QA-F08: the unambiguous synonym is recognized; administrative and
+        # partial statuses remain unknown (covered by stabilization regressions).
         t = table({'Valor': ['100,00', '50,00'], 'Tipo': ['Receita', 'Receita'],
                    'Moeda': ['BRL', 'BRL'], 'Status': ['Em aberto', 'Pago'],
                    'Data Pagamento': ['2026-01-05', '2026-01-06']})
         r = diagnose(t, 'pt-BR')
-        event = next(i for i in r['issues'] if i['code'] == 'unknown_payment_status')
-        self.assertEqual(event['severity'], 'BLOCKER')
-        self.assertEqual(event['scope'], 'cash_metrics')
-        self.assertEqual(event['source_rows'], [2])
-        self.assertIn('payment_status', indicator(r, 'cash_received')['missing_requirements'])
+        self.assertNotIn('unknown_payment_status', codes(r))
+        self.assertNotIn('payment_status', indicator(r, 'cash_received')['missing_requirements'])
+        self.assertEqual(indicator(r, 'cash_received')['status'], 'requires_contract')
 
     def test_paid_row_without_any_date_column_is_reported(self):
         t = table({'Valor': ['100,00'], 'Tipo': ['Receita'], 'Moeda': ['BRL'],
@@ -130,7 +128,6 @@ class StatusVocabularyTests(unittest.TestCase):
         self.assertEqual(event['scope'], 'cash_metrics')
         self.assertEqual(event['count'], 1)
 
-    @unittest.expectedFailure
     def test_qa_f08b_numeric_flag_is_not_a_payment_status(self):
         """QA-F08b: PAID contains '1' and PENDING contains '0', so a boolean-style
         column literally named ``Status`` is accepted as payment_status with
@@ -147,7 +144,6 @@ class StatusVocabularyTests(unittest.TestCase):
 class NameOnlyFallbackDefectTests(unittest.TestCase):
     """QA-F01: name-only fallbacks ignore the value evidence used by map_columns."""
 
-    @unittest.expectedFailure
     def test_qa_f01_task_list_status_is_not_a_payment_status(self):
         """A schedule column named ``Status`` (Concluído / Em andamento) is turned
         into a payment status by ``named({'status'})`` even though map_columns
@@ -163,7 +159,6 @@ class NameOnlyFallbackDefectTests(unittest.TestCase):
         self.assertEqual(mapped['Status'], 'insufficient_evidence')
         self.assertNotIn('unknown_payment_status', codes(r))
 
-    @unittest.expectedFailure
     def test_qa_f01_crm_classification_columns_are_not_movement_types(self):
         """``Tipo`` = PF/PJ (customer type) and ``Status`` = Ativo/Inativo are
         re-interpreted as movement/payment status by name, producing BLOCKERs on a
@@ -178,7 +173,6 @@ class NameOnlyFallbackDefectTests(unittest.TestCase):
 
 
 class HeaderMatchingDefectTests(unittest.TestCase):
-    @unittest.expectedFailure
     def test_qa_f03_realistic_pt_br_headers_are_mapped(self):
         """QA-F03: aliases must match the whole normalized name or a ``_alias``
         suffix, so the extremely common headers ``Valor Total`` and

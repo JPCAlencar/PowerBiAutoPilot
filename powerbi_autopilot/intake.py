@@ -4,9 +4,12 @@ from dataclasses import dataclass
 import hashlib
 import io
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
+from zipfile import BadZipFile
 
 import pandas as pd
-from openpyxl import load_workbook
+from openpyxl.reader.excel import ExcelReader
+from openpyxl.utils.exceptions import InvalidFileException
 
 from .contracts import Table, issue
 
@@ -21,6 +24,48 @@ class ReadOptions:
     sep: str | None = None
     encoding: str | None = None
     header_row: int = 1
+
+
+class _TabularExcelReader(ExcelReader):
+    """openpyxl 3.1 adapter: do not load drawings or non-tabular chartsheets.
+
+    Filtering wb.sheetnames after load is too late: an empty chartsheet can
+    already fail in openpyxl.read_chartsheet. This override also avoids reading
+    chart/image payloads that are irrelevant to the tabular contract.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.skipped_chartsheets = []
+
+    def read_chartsheet(self, sheet, rel):
+        self.skipped_chartsheets.append(sheet.name)
+
+
+def _csv_separator(text, header_row):
+    """Only a separator observed outside quotes in the logical header qualifies.
+
+    A multi-field header is never downgraded to one column to hide ragged rows.
+    With no structural header separator, preserve a single field as a hypothesis.
+    """
+    structured, consistent = [], []
+    for sep in ',;\t|':
+        reader = csv.reader(io.StringIO(text, newline=''), delimiter=sep, strict=True)
+        try:
+            for _ in range(header_row):
+                headers = next(reader)
+            if len(headers) <= 1:
+                continue
+            structured.append(sep)
+            if all(not record or len(record) == len(headers) for record in reader):
+                consistent.append(sep)
+        except (csv.Error, StopIteration):
+            continue
+    if len(consistent) == 1:
+        return consistent[0]
+    if structured:
+        raise InputError('Delimitador incerto ou linhas irregulares; informe --sep.')
+    return None
 
 
 def _table(source, headers, records, row_numbers, diagnostics):
@@ -83,17 +128,14 @@ def read_source(path, options=None):
             raise InputError('CSV vazio ou sem cabeçalho.')
         sep = options.sep
         if sep is None:
-            lines = text.splitlines()[options.header_row-1:options.header_row+20]
-            try:
-                sep = csv.Sniffer().sniff('\n'.join(lines), delimiters=',;\t|').delimiter
-            except csv.Error:
-                header = lines[0] if lines else ''
-                possible = [s for s in ',;\t|' if s in header]
-                if possible:
-                    raise InputError('Delimitador incerto ou linhas irregulares; informe --sep.')
-                sep = ','
+            sep = _csv_separator(text, options.header_row)
+            if sep is None:
+                diagnostics.append(('single_column_csv', 'INFO',
+                                    'Cabeçalho sem separador estrutural; coluna única é hipótese. Confirme com --sep.', 1))
         source.update(encoding=encoding, delimiter=sep)
-        reader = csv.reader(io.StringIO(text, newline=''), delimiter=sep, strict=True)
+        # NUL is forbidden in the source, so it is a safe internal sentinel for
+        # no delimiter while retaining standard CSV quoting/multiline semantics.
+        reader = csv.reader(io.StringIO(text, newline=''), delimiter=sep or '\x00', strict=True)
         records, rows = [], []
         try:
             for _ in range(options.header_row):
@@ -110,10 +152,19 @@ def read_source(path, options=None):
                 rows.append(row)
         except (csv.Error, StopIteration) as exc:
             raise InputError(f'CSV inválido próximo da linha {reader.line_num}.') from exc
-        return [_table(source, headers, records, rows, diagnostics)]
+        table = _table(source, headers, records, rows, diagnostics)
+        for event in table.issues:
+            if event['code'] == 'single_column_csv':
+                event['evidence_kind'] = 'inference'
+        return [table]
+    reader = None
     try:
-        wb = load_workbook(io.BytesIO(raw), read_only=True, data_only=False, keep_links=False)
+        reader = _TabularExcelReader(io.BytesIO(raw), read_only=True, data_only=False, keep_links=False)
         try:
+            reader.read()
+            wb = reader.wb
+            if options.sheet in reader.skipped_chartsheets:
+                raise InputError('Aba solicitada não é tabular.')
             if options.sheet is not None and options.sheet not in wb.sheetnames:
                 raise InputError('Aba solicitada não encontrada.')
             tables = []
@@ -139,10 +190,18 @@ def read_source(path, options=None):
                     table.issues.append(issue('formula_not_evaluated', 'BLOCKER', table.id,
                                               'Fórmulas não avaliadas; células indisponíveis para análise.', rows=sorted(set(formula_rows)), count=len(formula_rows)))
                 tables.append(table)
+            if not tables:
+                raise InputError('Nenhuma aba tabular disponível para análise.')
+            if reader.skipped_chartsheets:
+                tables[0].issues.append(issue('non_tabular_sheets_skipped', 'INFO', tables[0].id,
+                                              'Abas de gráficos não tabulares ignoradas; dados tabulares preservados.',
+                                              count=len(reader.skipped_chartsheets)))
             return tables
         finally:
-            wb.close()
+            reader.archive.close()
     except InputError:
         raise
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, BadZipFile, InvalidFileException, ParseError) as exc:
         raise InputError('Planilha inválida, protegida ou ilegível; use XLSX/XLSM válido.') from exc
+    except Exception as exc:
+        raise InputError('Falha interna na leitura tabular; diagnóstico não concluído.') from exc

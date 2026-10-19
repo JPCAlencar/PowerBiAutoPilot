@@ -37,7 +37,7 @@ def candidates(tables, max_candidates=100):
                                   'coverage_percent': round(100*matched/sum(ls.values()), 2),
                                   'orphan_rows': orphans, 'null_source_rows': left_nulls,
                                   'null_target_rows': right_nulls, 'matched_join_rows': join_rows,
-                                  'multiplication_risk': join_rows > matched or (left_nulls > 0 and right_nulls > 1),
+                                  'multiplication_risk': join_rows > matched,
                                   'null_join_policy': 'undefined_requires_contract',
                                   'validated': False, 'status': 'candidate_requires_review',
                                   'evidence_kind': 'inference',

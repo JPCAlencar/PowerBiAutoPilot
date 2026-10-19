@@ -79,14 +79,17 @@ def number(value, locale=None):
             if len(parts) == 2 and len(parts[-1]) == 3:
                 return Parsed(status='ambiguous')
             if len(parts) > 2:
-                if len(parts[0]) <= 3 and all(len(p) == 3 for p in parts[1:]):
-                    return Parsed(Decimal(('-' if neg else sign) + ''.join(parts)), 'valid')
-                return Parsed()
-            decimal_sep = sep
+                # Reuse the same grouping grammar as explicit locales and mixed
+                # separators; this path must not bypass magnitude safeguards.
+                decimal_sep = ',' if sep == '.' else '.'
+            else:
+                decimal_sep = sep
         else:
             decimal_sep = '.'
     grouping = ',' if decimal_sep == '.' else '.'
-    pattern = rf'(?:\d+|\d{{1,3}}(?:\{grouping}\d{{3}})+)(?:\{decimal_sep}\d+)?'
+    # A grouped integer starts with a nonzero group. Otherwise an opposite-
+    # locale fraction such as 0,500 could silently become 500.
+    pattern = rf'(?:\d+|[1-9]\d{{0,2}}(?:\{grouping}\d{{3}})+)(?:\{decimal_sep}\d+)?'
     if not re.fullmatch(pattern, text):
         return Parsed()
     canonical = text.replace(grouping, '').replace(decimal_sep, '.')

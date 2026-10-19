@@ -7,11 +7,13 @@ from .profiler import normalize
 
 
 def date_hint(name):
-    return bool(set(normalize(name).split('_')) & {'data', 'date', 'inicio', 'fim', 'start', 'end', 'vencimento', 'competencia', 'pagamento', 'atualizacao'})
+    tokens = set(normalize(name).split('_'))
+    return bool(tokens & {'data', 'date', 'inicio', 'fim', 'start', 'end', 'vencimento', 'competencia', 'pagamento', 'atualizacao'} or
+                ('dt' in tokens and tokens & {'pgto', 'pagto'}))
 
 
 def number_hint(name):
-    return bool(set(normalize(name).split('_')) & {'valor', 'value', 'amount', 'saldo', 'balance', 'receita', 'despesa', 'orcamento', 'budget', 'total'})
+    return bool(set(normalize(name).split('_')) & {'valor', 'vlr', 'value', 'amount', 'saldo', 'balance', 'receita', 'despesa', 'orcamento', 'budget', 'total'})
 
 
 def identifier_hint(name):
@@ -20,6 +22,26 @@ def identifier_hint(name):
 
 def _counts(parsed):
     return {s: sum(v.status == s for v in parsed) for s in ('valid', 'missing', 'invalid', 'ambiguous')}
+
+
+def _aggregate_rows(table, locale):
+    """Bounded-vocabulary layout hypothesis, never a decision to exclude rows."""
+    labels = {'total', 'totais', 'subtotal', 'total_geral', 'soma', 'resultado'}
+    refs = []
+    names = list(table.frame.columns)
+    identity_or_date = {i for i, name in enumerate(names) if identifier_hint(name) or date_hint(name)}
+    for row_number, values in zip(table.row_numbers, table.frame.itertuples(index=False, name=None)):
+        filled = [i for i, value in enumerate(values) if not missing(value)]
+        if not filled:
+            continue
+        label = filled[0]
+        if not isinstance(values[label], str) or normalize(values[label]) not in labels:
+            continue
+        if any(i != label and i in identity_or_date for i in filled):
+            continue
+        if any(i != label and number(values[i], locale).status in {'valid', 'ambiguous'} for i in filled):
+            refs.append(row_number)
+    return refs
 
 
 def profile_table(table, locale=None):
@@ -86,6 +108,13 @@ def profile_table(table, locale=None):
         issues.append(issue('empty_rows', 'WARNING', table.id, 'Linhas totalmente vazias preservadas.', rows=blank_rows))
     if not n:
         issues.append(issue('empty_table', 'WARNING', table.id, 'Tabela sem registros.', count=0))
+    aggregates = _aggregate_rows(table, locale)
+    if aggregates:
+        event = issue('footer_row_suspected', 'WARNING', table.id,
+                      'Possíveis totais/subtotais entre registros; perfil inclui todas as linhas. Confirmar grão antes de agregar; nenhuma linha removida.',
+                      rows=aggregates, scope='aggregation_review')
+        event['evidence_kind'] = 'inference'
+        issues.append(event)
     return {'table': table.id, 'source': table.source, 'rows': n, 'columns': columns,
             'duplicate_rows': len(duplicate_rows), 'empty_rows': len(blank_rows),
             'grain': {'status': 'unknown', 'candidate_keys': [c['name'] for c in columns if c['candidate_key']],

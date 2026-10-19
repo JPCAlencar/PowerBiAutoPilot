@@ -11,6 +11,7 @@ from pathlib import Path
 from openpyxl import Workbook
 
 from powerbi_autopilot.intake import InputError, ReadOptions, read_source
+from powerbi_autopilot.profiling import profile_table
 
 
 class IntakeCase(unittest.TestCase):
@@ -84,24 +85,31 @@ class CsvIntakeTests(IntakeCase):
             read_source(path, ReadOptions(sep=';'))
         self.assertIn('linha 3', str(explicit.exception))
 
-    def test_footer_total_row_is_ingested_as_a_regular_record(self):
-        # Documented behaviour (QA-F14): a trailing 'Total' row has the same field
-        # count, so intake accepts it as data; nothing marks it as a footer.
+    def test_footer_total_row_is_preserved_and_flagged_by_profiling(self):
+        # QA-F14: intake preserves Raw; profiling raises a bounded hypothesis,
+        # never silently promoting the row to a confirmed detail transaction.
         path = self.csv('footer.csv', 'ID;Valor\n1;10,00\nTotal;10,00\n')
         t = read_source(path)[0]
         self.assertEqual(len(t.frame), 2)
         self.assertEqual(t.row_numbers, [2, 3])
         self.assertEqual(t.issues, [])
         self.assertEqual(t.frame['ID'].tolist(), ['1', 'Total'])
+        p = profile_table(t, 'pt-BR')
+        event = next(i for i in p['issues'] if i['code'] == 'footer_row_suspected')
+        self.assertEqual(event['severity'], 'WARNING')
+        self.assertEqual(event['source_rows'], [3])
+        self.assertEqual(event['evidence_kind'], 'inference')
+        self.assertEqual(p['grain']['status'], 'unknown')
 
-    def test_single_column_csv_with_decimal_comma_is_rejected(self):
-        # QA-F16 (CONFIRMED BUG, HIGH for pt-BR exports): the delimiter sniffer
-        # picks ',' from the decimal values, so the one-field header disagrees with
-        # every data row and the file is refused as irregular.
+    def test_single_column_csv_with_decimal_comma_is_preserved(self):
+        # QA-F16: decimal commas in the body are not structural separators when
+        # the logical header has one field. The assumption remains explicit.
         path = self.csv('uma_coluna.csv', 'Valor\n10,00\n20,00\n')
-        with self.assertRaises(InputError) as ctx:
-            read_source(path)
-        self.assertIn('linha 2', str(ctx.exception))
+        t = read_source(path)[0]
+        self.assertEqual(t.frame['Valor'].tolist(), ['10,00', '20,00'])
+        self.assertEqual(t.row_numbers, [2, 3])
+        self.assertIsNone(t.source['delimiter'])
+        self.assertIn('single_column_csv', {i['code'] for i in t.issues})
         # The same file is read correctly when the separator is explicit.
         t = read_source(path, ReadOptions(sep=';'))[0]
         self.assertEqual(t.frame['Valor'].tolist(), ['10,00', '20,00'])
@@ -183,7 +191,6 @@ class ExcelIntakeTests(IntakeCase):
         self.assertEqual(t.issues[0]['severity'], 'BLOCKER')
         self.assertEqual(t.issues[0]['source_rows'], [2])
 
-    @unittest.expectedFailure
     def test_qa_f05_chartsheet_must_not_hide_the_data_sheets(self):
         """QA-F05 (CONFIRMED BUG, MEDIUM): ``Workbook.sheetnames`` also lists chart
         sheets, and ``Chartsheet`` has no ``iter_rows``; the resulting

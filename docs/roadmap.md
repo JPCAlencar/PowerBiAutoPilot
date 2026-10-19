@@ -11,6 +11,11 @@
 
 Aceite: os oito cenários sintéticos precisam ser inspecionados; inferências indevidas recusadas; perdas de registros e alterações não aprovadas detectadas; fontes preservadas; saídas reproduzíveis; suíte e regressões V0.1 aprovadas; nenhuma dependência de Desktop, IA ou serviços. Exemplos e resultados estão em DELIVERY_V0.2.md. Isso não constitui comprovação de interpretação correta para qualquer base real.
 
+V0.2.1 estabiliza o QA independente: conversões sem magnificação por agrupamento
+com zero, semântica contextual, CSV de coluna única, chartsheets, multiplicação
+não nula e suspeitas de totais preservados. Evidências e limitações em
+QA_RESOLUTION_V0.2.1.md. Não antecipa o executor da V0.3.
+
 ## V0.3 — contratos revisáveis e execução determinística
 
 Próximo passo recomendado: formalizar e validar contratos de grão/medidas/locale/moedas, permitir aprovação explícita de um plano e executar somente conversões inequívocas para Clean. Registrar por célula origem, regra aplicada e valor antes/depois em trilha local com acesso controlado; não nos logs comuns. Reconciliação deve aceitar apenas diferenças contratadas e rejeitar perdas ou alterações imprevistas. Adicionar chaves compostas e relações com nomes distintos mediante mapeamento explícito.

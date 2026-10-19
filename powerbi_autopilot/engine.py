@@ -2,7 +2,8 @@
 import hashlib
 from pathlib import Path
 
-from .contracts import issue
+from . import __version__
+from .contracts import SCHEMA_VERSION, issue
 from .financial import diagnose
 from .intake import InputError, read_source
 from .planning import plan_transformations
@@ -55,7 +56,7 @@ def analyze(paths, options=None, locale=None):
         integrity.append({'file': origin['path'].name, 'sha256': origin['sha256'], 'unchanged': same})
         if not same:
             issues.append(issue('source_changed_during_analysis', 'BLOCKER', 'all', 'Fonte mudou durante a leitura; refaça o diagnóstico.', count=1, scope='source_integrity'))
-    return {'schema_version': '0.2.0', 'engine_version': '0.2.0', 'locale': locale,
+    return {'schema_version': SCHEMA_VERSION, 'engine_version': __version__, 'locale': locale,
             'stages': {'Raw': 'preserved', 'Clean': 'planned_only', 'Analytical': 'not_implemented'},
             'tables': reports, 'relationships': rels, 'issues': issues,
             'validation': summarize(issues), 'source_integrity': integrity,
@@ -63,4 +64,6 @@ def analyze(paths, options=None, locale=None):
                             'Sem execução de transformações; reconciliação entre estágios não executada.',
                             'Sem indicadores financeiros calculados, DAX, PBIP ou inspeção visual.',
                             'Análise integral em memória; sem amostragem ou streaming.',
+                            'Totais/subtotais detectados somente por heurística; todas as linhas entram no perfil.',
+                            'Relações somente entre tabelas e nomes de identificadores iguais; sem chaves compostas.',
                             'Confiança heurística não é probabilidade calibrada.']}

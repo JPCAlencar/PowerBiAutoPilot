@@ -1,4 +1,4 @@
-# Contratos de dados V0.2.0
+# Contratos de dados V0.2.1
 
 ## Entrada e preservação
 
@@ -8,7 +8,24 @@ Formatos: CSV textual, XLSX e XLSM. XLSM é tratado como planilha de dados, nunc
 
 CSV: UTF-8/UTF-8 BOM por padrão; fallback cp1252 é hipótese com WARNING, não detecção comprovada. Outras codificações exigem opção explícita; NUL não é aceito. Delimitadores detectáveis: vírgula, ponto e vírgula, tab, pipe; `--sep` aceita um caractere. Linhas com quantidade de campos divergente falham, nunca são descartadas. Somente célula vazia é convertida em None; `NA`, `NULL` e códigos com zeros à esquerda ficam como texto. Linha vazia física vira registro vazio preservado. `header_row` em CSV conta registros lógicos, e em Excel conta linhas da planilha; para CSV multilinha, o número de origem é a linha física final do registro.
 
+A autodetecção considera somente separadores estruturais observados fora de
+aspas no cabeçalho lógico selecionado, verificando a quantidade de campos em todos
+os registros. Exige um único candidato consistente. Um cabeçalho com múltiplos
+campos nunca é rebaixado a coluna única para aceitar linhas irregulares.
+Sem separador estrutural no cabeçalho, `source.delimiter` é **null** e a leitura
+preserva uma coluna com cotação/multilinha CSV, registrando `single_column_csv`
+(INFO, inference). Isso permite vírgula decimal no corpo. Um cabeçalho de um
+campo seguido de corpo realmente multicoluna é indistinguível desse formato:
+a hipótese exige revisão; informe `--sep` para impor o formato e rejeitar a
+divergência. A opção explícita nunca é substituída por autodetecção.
+
 Excel: todas as abas por padrão, inclusive ocultas; seleção por nome exato. Nenhuma fórmula é avaliada nem seu cache é usado. Células de fórmula ficam indisponíveis (None) e geram BLOCKER com referência de origem, inclusive no cabeçalho. Campos armazenados como números permanecem numéricos: formatação visual e zeros apenas de máscara não são reconstruídos. Linhas vazias no intervalo usado da planilha são preservadas; formatação residual pode ampliar esse intervalo.
+
+Todas as **abas tabulares** são lidas. Chartsheets não têm registros e são
+ignoradas antes de carregar desenhos, com `non_tabular_sheets_skipped` (INFO,
+contagem de abas, associada à primeira tabela retornada). Selecionar uma
+chartsheet ou fornecer workbook sem aba tabular gera InputError específico.
+Falhas inesperadas internas têm mensagem sanitizada distinta de arquivo inválido.
 
 Cabeçalhos vazios recebem `column_N`; nomes repetidos recebem `__2`, `__3`, evitando colisões. O mapeamento posicional `source.headers` preserva o nome original. Nomes de fórmula não são incluídos. Não é inferido automaticamente que uma linha de preâmbulo seja cabeçalho: informe `header_row`.
 
@@ -30,9 +47,36 @@ O mesmo conteúdo/aba não pode entrar duas vezes em uma análise. A granularida
 
 pt-BR: agrupamento ponto, decimal vírgula, dia/mês. en-US: agrupamento vírgula, decimal ponto, mês/dia. Sem locale, números com ambos separadores e agrupamentos válidos são reconhecidos; um único separador seguido de três dígitos é ambíguo. Parênteses representam negativos. Texto monetário aceita R$, US$, BRL, USD, EUR, $, €; um `$` isolado não comprova USD. Notação científica textual, percentuais e agrupamentos com espaços não são suportados. Nenhuma conversão muda a fonte ou define natureza financeira.
 
+Inteiros com agrupamento exigem primeiro grupo de 1–3 dígitos começando em 1–9,
+seguido de grupos de exatamente três dígitos. Primeiro grupo `0`, `00`, `01`
+etc. é recusado quando usado como milhar, inclusive em caminhos sem locale com
+múltiplos separadores. `0,500` em en-US e `0.500` em pt-BR são `invalid`, com valor
+ausente; nunca se tenta automaticamente o locale oposto. Nas convenções decimais
+corretas continuam frações exatas; sem locale, os dois exemplos continuam
+`ambiguous`. Zero isolado é válido. Locale explícito não garante detectar toda
+configuração regional errada: `1,234` sob en-US é agrupamento válido, embora possa
+ter outra intenção na origem. Confirmar locale permanece pré-condição.
+
 ## Esquema JSON
 
-Todos os JSONs possuem `schema_version: "0.2.0"`. Valores monetários/estatísticas Decimal são strings, nunca float; não há NaN/Infinity. Campos desconhecidos são null ou status explícito. Consumidores devem verificar a versão e nunca interpretar ausência de BLOCKER como validação de semântica.
+Todos os JSONs possuem `schema_version: "0.2.1"`; `analysis.engine_version` é
+`"0.2.1"`. Valores monetários/estatísticas Decimal são strings, nunca float; não
+há NaN/Infinity. Campos desconhecidos são null ou status explícito. Consumidores
+devem verificar a versão e nunca interpretar ausência de BLOCKER como validação
+de semântica.
+
+### Migração de 0.2.0
+
+APIs de leitura, diagnóstico, reconciliação e CLI mantêm suas assinaturas. Os
+objetos/listas existentes permanecem; a versão foi incrementada porque um
+consumidor que exige delimitador string precisa aceitar `source.delimiter: null`
+em CSV de coluna única. Não substituir null por vírgula ao reler essas fontes.
+Consumidores devem aceitar os novos códigos de ocorrência, a operação proposta
+`review_aggregate_rows` e a dependência `detail_row_policy`; nunca executá-los
+por reconhecimento do nome. Resultados semânticos e contagens de ocorrências
+podem mudar com as correções, sem alterar os registros da fonte. Artefatos
+históricos 0.2.0 continuam históricos; reexecute a análise para produzir 0.2.1,
+sem editar JSONs antigos para apenas trocar a versão.
 
 Raiz `analysis.json`:
 
@@ -54,9 +98,61 @@ Profile: `table`, `source`, `rows`, `columns`, `duplicate_rows`, `empty_rows`, `
 
 Semantics é lista por coluna: `column`, `status` (hypothesis ou insufficient_evidence), `suggestions`. Sugestão contém role, confidence, confidence_kind, evidence, evidence_kind=inference, requires_business_contract=true. Evidências incluem quantidade não nula, compatibilidade e razão plausível. Força de 0.5/0.6/0.7/0.85 é heurística: compatibilidade parcial, campo genérico, amostra pequena ou maior compatibilidade. Não é probabilidade empírica nem grau de validação. Até compatibilidade total pode representar outro processo.
 
+Nomes são comparados integralmente ou por sufixo de alias, removendo conectivos
+isolados `de/da/do/das/dos/e`. Não há busca arbitrária por substring. Aliases
+monetários compostos incluem `valor_total`, `vlr_pgto`, `vlr_pagto`; datas de
+pagamento incluem `data_pagamento`, `data_recebimento`, `payment_date`,
+`dt_pagto`, `dt_pgto`. `Total de Itens` e `Data de Cadastro` não adquirem esses
+papéis. Mantém-se compatibilidade mínima de 80% dos valores não ausentes;
+nome sozinho não promove um campo inválido a hipótese semântica.
+
 Financial: `table`, `domain` (name, status, reason), `roles` (papel → nomes de colunas), currencies_observed, indicators, issues, unknowns. Uma sugestão de domínio financeiro não é fato observado. Indicador: id, meaning, status (`available` para contagem de linhas; `requires_contract` ou `insufficient_evidence` para os demais), missing_requirements e evidence_kind. Não há resultados monetários calculados.
 
+`roles` deriva somente de hipóteses semânticas. O diagnóstico pode auditar
+colunas rejeitadas sem promovê-las: fallback de `Tipo/Status` requer contexto
+financeiro (hipótese de amount/balance, padrão monetário nos valores, ou
+campo numérico indicado e moeda mapeada). Ausência de contexto impede que
+`Tipo=PF/PJ` ou `Status=Concluído/Ativo` sozinho produza bloqueios financeiros.
+No contexto financeiro, um estado/tipo desconhecido ainda bloqueia somente o
+escopo de classificação/caixa correspondente; não se presume sua interpretação.
+Datas de pagamento inválidas são auditadas mesmo sem hipótese semântica, e
+múltiplas candidatas nunca são resolvidas escolhendo um nome preferido.
+
+### Vocabulário financeiro de status
+
+Comparação ignora caixa, acentos e usa `_` para espaços, como `Em aberto` →
+`em_aberto`. Vocabulário publicado, sem expor tokens da fonte nos erros:
+
+| Classe heurística | Tokens aceitos |
+|---|---|
+| Pago | `pago`, `paid`, `recebido`, `liquidado`, `quitado` |
+| Pendente | `pendente`, `pending`, `aberto`, `em_aberto`, `vencido` |
+| Cancelado | `cancelado`, `cancelled`, `canceled`, `estornado` |
+| Flags de pago | `sim`, `true`, `1`, `s`, `yes`, `✓` |
+| Flags de pendente | `nao`, `false`, `0`, `n`, `no` |
+
+Flags só são interpretadas sob cabeçalho explícito de pagamento (`pago`, `paid`,
+`quitado`, `liquidado`, por igualdade do nome normalizado). Nomes qualificados
+ou negativos como `Não Pago`, `Foi Pago` e `Valor Pago` exigem contrato, sem
+inferir polaridade da flag. Em `Status/Situação`
+genéricos não significam pagamento, mesmo numa tabela financeira. Uma coluna
+genérica composta apenas de flags não é auditada como status de pagamento;
+coluna mista mantém flags desconhecidas e nunca as transforma em pago. Estados
+como `Parcial`, `Pago parcial`, `Baixado`, `Aguardando`, `Em análise` continuam
+desconhecidos: podem representar processos distintos, exigindo contrato.
+`vencido` é compatível com pendência, sem calcular atraso ou inadimplência;
+o valor original é preservado e `overdue` sempre exige política/data de referência.
+
 RelationshipCandidate: from_table/column, to_table/column, cardinality (`one_to_one`, `one_to_many`, `many_to_one`, `many_to_many`), coverage_percent (linhas de origem não nulas com correspondência), orphan_rows, null_source/target_rows, matched_join_rows (estimativa de correspondências não nulas), multiplication_risk, null_join_policy, validated=false, status=candidate_requires_review, evidence_kind=inference e reason. Identificadores iguais podem ser entidades distintas. Não aplicar joins usando esses resultados sem revisão. Ambas as direções podem aparecer; risco na direção inversa não proíbe usar uma dimensão única no sentido apropriado.
+
+`multiplication_risk` compara correspondências não nulas resultantes com linhas
+não nulas de origem que encontram correspondência. É **direcional**: many-to-one
+pode não multiplicar enquanto one-to-many multiplica. Nulos não entram nessa
+estimativa, nem em orphan_rows, e são contados separadamente; sua política segue
+indefinida. Isso não autoriza casar nulos: executores como pandas podem fazê-lo
+e exigem contrato próprio. A busca não examina pares intra-tabela, nomes de
+identificadores diferentes nem chaves compostas; ausência de candidato não é
+prova de ausência de relação de negócio.
 
 `profile.json` contém schema_version e tables (somente perfis). `plan.json` contém schema_version, executed=false e tables com table, transformations e indicators. `report.md` resume o JSON com limites de 50 colunas/hipóteses por tabela, 30 relações e 100 ocorrências; limites são indicados no texto. JSON conserva todas as ocorrências, mas referências de linhas são limitadas.
 
@@ -66,6 +162,19 @@ Issue: code (identificador estável), severity (`BLOCKER|WARNING|INFO`), table, 
 
 BLOCKER impede a operação identificada pelo escopo, não todas as análises. WARNING merece revisão e nunca autoriza correção automática. INFO registra limitações ou oportunidade. Códigos principais: invalid/ambiguous_number/date, missing_values, suspected_duplicates, empty_rows/table, formula_not_evaluated, unknown/mixed_currency, currency_conflict, unknown_movement_type, unknown_payment_status, paid_without_payment_date, special_movements, cancelled_records, non_additive_balance, classification_variants, join_multiplication_risk, candidate_orphans e insufficient_schedule_dates.
 
+`footer_row_suspected` é WARNING, `evidence_kind=inference`, escopo
+`aggregation_review`, com contagem total e até 20 linhas. O perfil procura em
+qualquer posição da tabela (não apenas no final) primeiro campo preenchido com
+rótulo exato `total/totais/subtotal/total_geral/soma/resultado`, outro campo com
+forma numérica válida/ambígua e demais campos de identidade/data vazios. É
+heurística de layout, sujeita a falso positivo/negativo, sem confirmar que o
+valor seja soma. Não detecta fórmulas como números nem rodapés de qualquer
+formato. Perfis e distribuições incluem **todas** as linhas originais. Grão
+continua desconhecido; indicadores de negócio exigem `detail_row_policy` quando
+essa ocorrência existe. Contagem observada de linhas segue disponível.
+Rodapés com quantidade divergente de campos continuam sendo recusados: tolerá-los
+descartaria campos ou inventaria alinhamento. Não há exclusão automática.
+
 ValidationSummary: counts por severidade, blocked_scopes, status (`blocked_scopes`, `review_required`, `no_findings_in_supported_checks`), semantic_validation=not_performed, transformations_executed=false. Não existe status global “dados validados”.
 
 ## Contrato de medidas e planejamento
@@ -73,6 +182,10 @@ ValidationSummary: counts por severidade, blocked_scopes, status (`blocked_scope
 Antes de construir uma medida, confirmar grão e entidade, classificação de natureza, convenção de sinais, papel temporal, moeda e conversão, regras de status/cancelamentos/transferências/estornos, agregação e tratamento de nulos/duplicatas. Receita prevista, recebida, despesa incorrida, paga e saldo têm definições separadas. Inadimplência exige data de referência e política, além de vencimento/status. O motor não usa relógio atual para supor atraso.
 
 TransformationStep: id, source e destination (stage/table/column), operation, reason, risks, preconditions, status=proposed_requires_review, executed=false. Operações atuais: resolve_locale, parse_number/date, review_missing, review_duplicates, confirm_semantics. Nenhuma exclusão/imputação/correção é executada. Não há CLI para aprovar um plano nesta versão.
+
+V0.2.1 acrescenta `review_aggregate_rows`: revisar grão e política de linhas
+agregadas, preservar linhas/identidades e exigir reconciliação antes de qualquer
+transformação futura. A proposta não separa nem remove totais.
 
 ## Reconciliação independente
 
